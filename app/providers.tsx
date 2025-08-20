@@ -13,7 +13,7 @@
 import { ReactNode } from 'react';
 import '@rainbow-me/rainbowkit/styles.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider, http } from 'wagmi';
+import { WagmiProvider, createConfig, http } from 'wagmi';
 import { RainbowKitProvider, getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { moonbeam, moonriver, moonbaseAlpha } from 'wagmi/chains';
 import { PrivyProvider } from '@privy-io/react-auth';
@@ -23,6 +23,7 @@ const queryClient = new QueryClient();
 // === ENV + FLAGA ZAŚLEPEK ===
 const WC_PROJECT_ID = process.env.NEXT_PUBLIC_WC_PROJECT_ID || 'WC_PROJECT_ID_PLACEHOLDER';
 const PRIVY_APP_ID = process.env.NEXT_PUBLIC_PRIVY_APP_ID || 'PRIVY_APP_ID_PLACEHOLDER';
+const WC_READY = WC_PROJECT_ID !== 'WC_PROJECT_ID_PLACEHOLDER';
 const PRIVY_READY = PRIVY_APP_ID !== 'PRIVY_APP_ID_PLACEHOLDER';
 
 // === Transports: własne RPC (w prod podmień na swoje) ===
@@ -32,14 +33,23 @@ const transports = {
   [moonbaseAlpha.id]: http('https://rpc.api.moonbase.moonbeam.network'),
 };
 
-// === Konfiguracja wagmi/rainbowkit (działa z placeholderem, ale nie połączy) ===
-const wagmiConfig = getDefaultConfig({
-  appName: 'Email Wallet MVP',
-  projectId: WC_PROJECT_ID, // <— ZAŚLEPKA na start
-  chains: [moonbeam, moonriver, moonbaseAlpha],
-  ssr: true,
-  transports,
-});
+// === Konfiguracja wagmi/rainbowkit ===
+// Gdy brakuje prawdziwego projectId → używamy stubu bez konektorów WC,
+// co zapobiega próbom pobierania zewnętrznej konfiguracji (i błędom 403).
+const wagmiConfig = WC_READY
+  ? getDefaultConfig({
+      appName: 'Email Wallet MVP',
+      projectId: WC_PROJECT_ID,
+      chains: [moonbeam, moonriver, moonbaseAlpha],
+      ssr: true,
+      transports,
+    })
+  : createConfig({
+      chains: [moonbeam, moonriver, moonbaseAlpha],
+      ssr: true,
+      transports,
+      connectors: [],
+    });
 
 function CoreProviders({ children }: { children: ReactNode }) {
   return (
